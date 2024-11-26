@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Менеджер настройки интеграции</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f3f4f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #mainContainer {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            padding: 20px;
+            width: 100%;
+            align-items: stretch;
+        }
+
+        #configPanel, #testManagerPanel {
+            max-width: 500px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 45%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: left;
+            text-align: left;
+            flex-grow: 1;
+            height: auto;
+        }
+
+        label {
+            color: #4a5568;
+            font-weight: bold;
+            margin-top: 10px;
+            display: block;
+            text-align: left;
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #3182ce;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        button:disabled {
+            background-color: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        .notification {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.5s;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            border: 1px solid #cbd5e0;
+        }
+
+        .notification.success {
+            background-color: #e6fffa;
+            color: #38a169;
+            border-color: #81e6d9;
+        }
+
+        .notification.error {
+            background-color: #fff5f5;
+            color: #e53e3e;
+            border-color: #feb2b2;
+        }
+    </style>
+</head>
+<body>
+    <div id="mainContainer">
+        <div id="configPanel">
+            <h2>Менеджер настройки интеграции</h2>
+
+            <form id="configForm">
+                <button type="button" onclick="document.getElementById('modelFile').click()">Выберите файл</button>
+                <input type="file" id="modelFile" accept=".json, .xml" required onchange="fileSelected()" style="display:none;">
+                
+                <label for="serverSelector">Выберите сервер для отправки:</label>
+                <select id="serverSelector">
+                    <option value="server1">Server 1</option>
+                    <option value="server2">Server 2</option>
+                    <option value="server3">Server 3</option>
+                </select>
+
+                <button type="button" onclick="generateConfigFile()">Сформировать файл конфигурации</button>
+                <button type="button" id="configureBtn" disabled onclick="configureIntegration()">Конфигурировать интеграцию</button>
+            </form>
+
+            <div id="notification" class="notification"></div>
+        </div>
+    </div>
+    <script>
+        let configurationFile = null;
+        const apiUrls = {
+            server1: {
+                url: "https://localhost:7088/queue",
+                additionalParam: "param1"
+            },
+            server2: {
+                url: "https://localhost:7088/queue",
+                additionalParam: "param2"
+            },
+            server3: {
+                url: "https://localhost:7088/queue",
+                additionalParam: "param3"
+            }
+        };
+
+        document.getElementById("modelFile").addEventListener("change", async function () {
+            const file = this.files[0];
+            if (!file) {
+                showNotification("Файл не выбран", false);
+                return;
+            }
+            showNotification(`Файл успешно выбран`, true);
+            document.getElementById("configureBtn").disabled = false;
+        });
+
+        function showNotification(message, success) {
+            const notification = document.getElementById("notification");
+            notification.textContent = message;
+            notification.className = "notification " + (success ? "success" : "error");
+            notification.style.opacity = 1;
+            setTimeout(() => notification.style.opacity = 0, 3000);
+        }
+
+        function fileSelected() {
+            showNotification("Новый файл успешно подгружен. Переформируйте файл конфигурации.", true);
+        }
+
+        async function generateConfigFile() {
+            const modelFile = document.getElementById('modelFile').files[0];
+            if (!modelFile) {
+                alert("Сначала выберите файл.");
+                return;
+            }
+
+            try {
+                const modelContent = await modelFile.text();
+                configurationFile = { model: modelContent };
+
+                document.getElementById('configureBtn').disabled = false;
+                showNotification("Конфигурация успешно создана", true);
+                const formattedXml = modelContent.replace(/\\r\\n/g, '\n').replace(/\\"/g, '"');
+                console.log(formattedXml);
+                // console.log(JSON.stringify(configurationFile, null, 2));
+
+            } catch (error) {
+                console.error("Ошибка при обработке файла:", error);
+            }
+        }
+
+        async function configureIntegration() {
+            if (!configurationFile) {
+                alert("Сначала создайте файл конфигурации.");
+                return;
+            }
+
+            const selectedServer = document.getElementById("serverSelector").value;
+            const apiUrlData = apiUrls[selectedServer];
+
+            // Добавление параметра для выбранного сервера в URL
+            const urlWithParam = `${apiUrlData.url}?server=${selectedServer}`;
+
+            try {
+                const response = await fetch(urlWithParam, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(configurationFile)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Ошибка сервера: ${response.status}`);
+                }
+
+                // Получаем результат от сервера
+                const result = await response.json();
+                
+                console.log(result);  // Выводим результат, чтобы понять, что сервер возвращает
+                showNotification("Сообщение отправлено в динамический шлюз.", true);
+            } catch (error) {
+                console.error(error);
+                showNotification("Ошибка конфигурации", false);
+            }
+        }
+    </script>
+</body>
+</html>
