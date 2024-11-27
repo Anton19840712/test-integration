@@ -1,4 +1,8 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
+using System.Xml;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RabbitMQ.Client;
 using Serilog;
 
@@ -33,6 +37,13 @@ namespace queue
 				return;
 			}
 
+			// Проверка на XML
+			if (IsXml(messageContent))
+			{
+				messageContent = ConvertXmlToJson(messageContent);
+				_logger.Information("Сообщение было преобразовано из XML в JSON.");
+			}
+
 			var enrichedMessage = new
 			{
 				Id = Guid.NewGuid(),
@@ -54,5 +65,70 @@ namespace queue
 
 			_logger.Information("Сообщение с GUID {Id} добавлено в очередь {Server}", enrichedMessage.Id, server);
 		}
+
+		private bool IsXml(string content)
+		{
+			// Проверка на начало XML документа
+			return content.TrimStart().StartsWith("<");
+		}
+
+		private string ConvertXmlToJson(string xml)
+		{
+			var xmlDoc = new XmlDocument();
+
+			// Убираем BOM-символы и невидимые символы
+			xml = xml.TrimStart(new char[] { '\uFEFF', '\u200B' });
+
+			// Убираем вложенную XML декларацию внутри <model>
+			var xmlWithoutInnerDeclaration = Regex.Replace(xml, @"<\?xml.*?\?>", string.Empty);
+
+			// Убираем все до первого тега
+			xml = xmlWithoutInnerDeclaration.Substring(xmlWithoutInnerDeclaration.IndexOf('<'));
+
+			// Логируем XML перед загрузкой для диагностики
+			_logger.Information("XML перед загрузкой: {XmlContent}", xml);
+
+			try
+			{
+				xmlDoc.LoadXml(xml);  // Попытка загрузить XML
+			}
+			catch (XmlException ex)
+			{
+				_logger.Error("Ошибка при загрузке XML: {ErrorMessage}", ex.Message);
+				return JsonConvert.SerializeObject(new { error = "Ошибка при обработке XML", details = ex.Message }, Newtonsoft.Json.Formatting.Indented);
+			}
+
+			XmlNode bodyNode = xmlDoc.SelectSingleNode("//*[local-name()='Body']");
+
+			if (bodyNode != null)
+			{
+				var card112ChangedRequestNode = bodyNode.SelectSingleNode("//*[local-name()='card112ChangedRequest']");
+
+				if (card112ChangedRequestNode != null)
+				{
+					var jsonSettings = new JsonSerializerSettings
+					{
+						Formatting = Newtonsoft.Json.Formatting.Indented,
+						Converters = { new Newtonsoft.Json.Converters.XmlNodeConverter { OmitRootObject = true } }
+					};
+
+					string jsonText = JsonConvert.SerializeObject(card112ChangedRequestNode, jsonSettings);
+
+					var jsonObject = JsonConvert.DeserializeObject<JObject>(jsonText);
+
+					// Убираем все атрибуты, начинающиеся с "@"
+					jsonObject.Descendants().OfType<JProperty>()
+							  .Where(attr => attr.Name.StartsWith("@"))
+							  .ToList()
+							  .ForEach(attr => attr.Remove());
+
+					return JsonConvert.SerializeObject(jsonObject, Newtonsoft.Json.Formatting.Indented);
+				}
+			}
+
+			// Если узел не найден, возвращаем исходное сообщение как JSON
+			return JsonConvert.SerializeObject(new { originalMessage = xml }, Newtonsoft.Json.Formatting.Indented);
+		}
+
 	}
 }

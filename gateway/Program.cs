@@ -1,3 +1,4 @@
+using System.Text;
 using queue;
 using RabbitMQ.Client;
 using Serilog;
@@ -71,8 +72,20 @@ app.MapPost("/queue", async (string server, HttpContext context) =>
 	// Публикация сообщения в очередь RabbitMQ
 	queueService.PublishMessage(server, modelContent);
 
-	return Results.Ok(new { message = $"Сообщение добавлено в очередь {server}" });
+	// Отправка SOAP ответа
+	string payload = "<?xml version='1.0' encoding='utf-8'?>\r\n" +
+					 "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\">" +
+					 "<soapenv:Body>\r\n" +
+					 "<card112ChangedResponse xmlns=\"http://www.protei.ru/emergency/integration\">\r\n" +
+					 "<errorCode>0</errorCode>\r\n" +
+					 "<errorMessage></errorMessage>\r\n" +
+					 "</card112ChangedResponse>\r\n" +
+					 "</soapenv:Body></soapenv:Envelope>";
 
+	await context.Response.Body.WriteAsync(Encoding.UTF8.GetBytes(payload));
+	logger.Information("Sent SOAP response: {Response}", payload);
+
+	return Results.Empty; // Возвращаем пустой результат, так как ответ уже отправлен в context.Response.Body
 });
 
 app.Run();
