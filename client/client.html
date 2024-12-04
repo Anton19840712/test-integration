@@ -119,6 +119,7 @@
                     <option value="server3">Server 3</option>
                 </select>
 
+				<button type="button" onclick="uploadFile()">Загрузить файл</button>
                 <button type="button" onclick="generateConfigFile()">Сформировать файл конфигурации</button>
                 <button type="button" id="configureBtn" disabled onclick="configureIntegration()">Конфигурировать интеграцию</button>
             </form>
@@ -222,6 +223,37 @@
                 showNotification("Ошибка конфигурации", false);
             }
         }
+		async function uploadFile() {
+			const fileInput = document.getElementById('modelFile');
+			const file = fileInput.files[0];
+
+			if (!file) {
+				showNotification("Пожалуйста, выберите файл перед загрузкой.", false);
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append("file", file);
+
+			try {
+				const response = await fetch("https://localhost:7088/upload", {
+					method: "POST",
+					body: formData,
+				});
+
+				if (!response.ok) {
+					throw new Error(`Ошибка сервера: ${response.status}`);
+				}
+
+				const result = await response.json();
+				showNotification(result.Message || "Файл успешно загружен.", true);
+			} catch (error) {
+				console.error("Ошибка при загрузке файла:", error);
+				showNotification("Ошибка при загрузке файла. Проверьте консоль для деталей.", false);
+			}
+		}
+
+		
     </script>
 </body>
 </html>

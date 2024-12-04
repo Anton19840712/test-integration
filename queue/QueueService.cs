@@ -16,7 +16,8 @@ namespace queue
 		{
 			{ "server1", "queue1" },
 			{ "server2", "queue2" },
-			{ "server3", "queue3" }
+			{ "server3", "queue3" },
+			{ "sftp", "queue3" }
 		};
 
 		public QueueService(
@@ -129,6 +130,5 @@ namespace queue
 			// Если узел не найден, возвращаем исходное сообщение как JSON
 			return JsonConvert.SerializeObject(new { originalMessage = xml }, Newtonsoft.Json.Formatting.Indented);
 		}
-
 	}
 }

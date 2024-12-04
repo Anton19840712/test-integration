@@ -1,0 +1,6 @@
+@endpoint_sftp_HostAddress = http://localhost:5145
+
+GET {{endpoint_sftp_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

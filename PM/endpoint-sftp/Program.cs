@@ -1,12 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.OpenApi.Models;
-using queue;
 using RabbitMQ.Client;
 using Serilog;
-using ILogger = Serilog.ILogger;
 using sftp_client;
-using gateway.background;
-using gateway.queue;
+using ILogger = Serilog.ILogger;
 
 Console.Title = "gateway";
 
@@ -32,8 +29,7 @@ services.AddCors(options =>
 
 services.AddAntiforgery(); // Добавляем антифальсификацию (анти-CSRF)
 services.AddHttpClient();
-services.AddSingleton<IConnectionFactory>(new ConnectionFactory { Uri = new Uri("amqp://localhost") });
-services.AddSingleton<QueueService>();
+services.AddSingleton<RabbitMQ.Client.IConnectionFactory>(new ConnectionFactory { Uri = new Uri("amqp://localhost") });
 
 // Регистрация ILogger для DI
 services.AddSingleton<ILogger>(new LoggerConfiguration()
@@ -50,20 +46,16 @@ var sftpConfig = new SftpConfig
 };
 // регистрация сервисов
 services.AddSingleton(sftpConfig); // регистрируем конфигурацию
-services.AddTransient<IFileUploadService, FileUploadService>(); // загружаем на нод
-services.AddTransient<IFileDownloadService, FileDownloadService>(); // скачиваем оттуда
-
-services.AddSingleton<FileProcessingQueue>();
-services.AddHostedService<FileUploadBackgroundService>();
+services.AddTransient<IFileDownloadService, FileDownloadService>();
 
 builder.Services.AddEndpointsApiExplorer(); // Генерация API-описания
 builder.Services.AddSwaggerGen(options =>
 {
 	options.SwaggerDoc("v1", new OpenApiInfo
 	{
-		Title = "Gateway API",
+		Title = "PM API",
 		Version = "v1",
-		Description = "API для загрузки файлов и управления очередями"
+		Description = "API PM"
 	});
 });
 
@@ -75,22 +67,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 		options.LogoutPath = "/logout"; // Путь для выхода
 	});
 
-// Добавляем авторизацию
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
-
-// Добавляем поддержку аутентификации и авторизации
 app.UseAuthentication();
 app.UseAuthorization();
-
-// Добавляем антифальсификацию
-app.UseAntiforgery();
-
-// Включаем HTTPS редирект
 app.UseHttpsRedirection();
-
-// Включение CORS с использованием вашей политики "AllowLocalhost"
 app.UseCors("AllowLocalhost");
 
 // Включение Swagger
@@ -100,29 +82,6 @@ app.UseSwaggerUI(options =>
 	options.SwaggerEndpoint("/swagger/v1/swagger.json", "Gateway API v1");
 	options.RoutePrefix = string.Empty; // Делаем Swagger доступным по корневому пути
 });
-
-app.MapPost("/upload", async (IFormFile file, FileProcessingQueue fileQueue, ILogger logger) =>
-{
-	if (file == null || file.Length == 0)
-	{
-		logger.Error("Файл не был загружен или пустой.");
-		return Results.BadRequest("Файл не был загружен.");
-	}
-
-	try
-	{
-		await fileQueue.EnqueueFileAsync(file.OpenReadStream(), file.FileName, CancellationToken.None);
-
-		logger.Information("Файл {FileName} добавлен в очередь на загрузку.", file.FileName);
-		return Results.Ok(new { Message = "Файл добавлен в очередь на загрузку." });
-	}
-	catch (Exception ex)
-	{
-		logger.Error("Ошибка при добавлении файла в очередь: {Error}", ex.Message);
-		return Results.StatusCode(500);
-	}
-})
-	.DisableAntiforgery();
 
 
 app.MapGet("/download", async (

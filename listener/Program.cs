@@ -35,38 +35,38 @@ public class Program
 		}
 	}
 
-	//public static IHostBuilder CreateHostBuilder(string[] args) =>
-	//	Host.CreateDefaultBuilder(args)
-	//		.UseSerilog() // Подключаем Serilog к хосту
-	//		.ConfigureServices((hostContext, services) =>
-	//		{
-	//			//services.AddSingleton<IConnectionFactory>(provider =>
-	//			//   new ConnectionFactory
-	//			//   {
-	//			//	   HostName = "localhost", // Укажите ваше значение, если отличается
-	//			//	   UserName = "guest",     // Имя пользователя
-	//			//	   Password = "guest"      // Пароль
-	//			//   });
-
-	//			services.AddHttpClient();
-	//			services.AddHostedService<RabbitMqListenerService>();
-	//		});
-
-
 	public static IHostBuilder CreateHostBuilder(string[] args) =>
 		Host.CreateDefaultBuilder(args)
 			.UseSerilog() // Подключаем Serilog к хосту
 			.ConfigureServices((hostContext, services) =>
 			{
-				// Прямо регистрируем IConnectionFactory с настройками
-				services.AddSingleton<IConnectionFactory>(new ConnectionFactory
-				{
-					Uri = new Uri("amqp://admin:admin@172.16.211.18/termidesk") // Ваш адрес RabbitMQ
-				});
+				services.AddSingleton<IConnectionFactory>(provider =>
+				   new ConnectionFactory
+				   {
+					   HostName = "localhost", // Укажите ваше значение, если отличается
+					   UserName = "service",     // Имя пользователя
+					   Password = "A1qwert"      // Пароль
+				   });
 
 				services.AddHttpClient();
 				services.AddHostedService<RabbitMqListenerService>();
 			});
+
+
+	//public static IHostBuilder CreateHostBuilder(string[] args) =>
+	//	Host.CreateDefaultBuilder(args)
+	//		.UseSerilog() // Подключаем Serilog к хосту
+	//		.ConfigureServices((hostContext, services) =>
+	//		{
+	//			// Прямо регистрируем IConnectionFactory с настройками
+	//			services.AddSingleton<IConnectionFactory>(new ConnectionFactory
+	//			{
+	//				Uri = new Uri("amqp://admin:admin@172.16.211.18/termidesk") // Ваш адрес RabbitMQ
+	//			});
+
+	//			services.AddHttpClient();
+	//			services.AddHostedService<RabbitMqListenerService>();
+	//		});
 }
 
 	// Фоновый сервис для прослушивания очереди RabbitMQ
@@ -124,6 +124,7 @@ public class Program
 				// Попытаться определить, является ли сообщение JSON или XML
 				object parsedMessage = null;
 				string formattedMessage = string.Empty;
+
 
 				// Проверяем, является ли сообщение JSON
 				try

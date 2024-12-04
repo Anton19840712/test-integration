@@ -11,8 +11,11 @@
 		<PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
 		<PackageReference Include="Serilog.Extensions.Hosting" Version="7.0.0" />
 		<PackageReference Include="Serilog.Settings.Configuration" Version="7.0.1" />
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="7.1.0" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\queue\queue.csproj" />
+	  <ProjectReference Include="..\sftp-in\sftp.csproj" />
+	  <ProjectReference Include="..\sftp\sftp.csproj" />
 	</ItemGroup>
 </Project>
