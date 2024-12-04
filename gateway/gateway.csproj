@@ -15,7 +15,6 @@
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\queue\queue.csproj" />
-	  <ProjectReference Include="..\sftp-in\sftp.csproj" />
 	  <ProjectReference Include="..\sftp\sftp.csproj" />
 	</ItemGroup>
 </Project>

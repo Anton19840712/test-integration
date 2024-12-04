@@ -5,7 +5,7 @@ using Serilog;
 using sftp_client;
 using ILogger = Serilog.ILogger;
 
-Console.Title = "gateway";
+Console.Title = "endpoint-sftp";
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
@@ -14,28 +14,15 @@ var services = builder.Services;
 builder.Host.UseSerilog((context, services, configuration) =>
 	configuration.WriteTo.Console());
 
-// Добавляем политику CORS
-services.AddCors(options =>
-{
-	options.AddPolicy("AllowLocalhost",
-		builder =>
-		{
-			builder.WithOrigins("http://127.0.0.1:5501")
-				   .AllowAnyHeader()
-				   .AllowAnyMethod();
-		});
-});
-
-
-services.AddAntiforgery(); // Добавляем антифальсификацию (анти-CSRF)
 services.AddHttpClient();
-services.AddSingleton<RabbitMQ.Client.IConnectionFactory>(new ConnectionFactory { Uri = new Uri("amqp://localhost") });
+services.AddSingleton<IConnectionFactory>(new ConnectionFactory { Uri = new Uri("amqp://localhost") });
 
 // Регистрация ILogger для DI
 services.AddSingleton<ILogger>(new LoggerConfiguration()
 	.WriteTo.Console()
 	.CreateLogger());
 
+// Настройка SFTP
 var sftpConfig = new SftpConfig
 {
 	Host = AppSettings.Host,
@@ -44,46 +31,48 @@ var sftpConfig = new SftpConfig
 	Password = AppSettings.Password,
 	Source = AppSettings.Source
 };
-// регистрация сервисов
-services.AddSingleton(sftpConfig); // регистрируем конфигурацию
+
+services.AddSingleton(sftpConfig);
 services.AddTransient<IFileDownloadService, FileDownloadService>();
 
-builder.Services.AddEndpointsApiExplorer(); // Генерация API-описания
-builder.Services.AddSwaggerGen(options =>
+// Генерация документации Swagger
+services.AddEndpointsApiExplorer();
+services.AddSwaggerGen(options =>
 {
 	options.SwaggerDoc("v1", new OpenApiInfo
 	{
 		Title = "PM API",
 		Version = "v1",
-		Description = "API PM"
+		Description = "API для скачивания файлов через SFTP."
 	});
 });
 
-// Добавляем аутентификацию с использованием cookies
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+// Добавление аутентификации
+services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 	.AddCookie(options =>
 	{
-		options.LoginPath = "/login"; // Путь для входа
-		options.LogoutPath = "/logout"; // Путь для выхода
+		options.LoginPath = "/login";
+		options.LogoutPath = "/logout";
 	});
 
-builder.Services.AddAuthorization();
+services.AddAuthorization();
 
 var app = builder.Build();
+
+// Middleware
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseHttpsRedirection();
-app.UseCors("AllowLocalhost");
 
-// Включение Swagger
+// Подключение Swagger
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
-	options.SwaggerEndpoint("/swagger/v1/swagger.json", "Gateway API v1");
-	options.RoutePrefix = string.Empty; // Делаем Swagger доступным по корневому пути
+	options.SwaggerEndpoint("/swagger/v1/swagger.json", "PM API v1");
+	options.RoutePrefix = "swagger"; // Swagger доступен на /swagger
 });
 
-
+// Маршрут для скачивания файлов
 app.MapGet("/download", async (
 	IFileDownloadService downloadService,
 	ILogger logger,
@@ -91,11 +80,8 @@ app.MapGet("/download", async (
 {
 	try
 	{
-		// скачаем все файлы, которые там находятся
 		logger.Information("Начинается процесс скачивания файлов с сервера SFTP.");
-
 		await downloadService.DownloadFilesAsync(cancellationToken);
-
 		logger.Information("Процесс скачивания файлов завершён успешно.");
 		return Results.Ok(new { Message = "Файлы успешно скачаны." });
 	}
