@@ -3,7 +3,6 @@
     public class AppSettings
     {
         #region Settings
-        
         public static string Host => "172.16.205.118";
         public static int Port => 22;
         public static string UserName => "tester";

@@ -23,6 +23,7 @@ services.AddCors(options =>
 	options.AddPolicy("AllowLocalhost",
 		builder =>
 		{
+			//для возможности подгрузки из внешней страницы html
 			builder.WithOrigins("http://127.0.0.1:5501")
 				   .AllowAnyHeader()
 				   .AllowAnyMethod();

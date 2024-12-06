@@ -1,7 +1,5 @@
-using endpoint_sftp.background;
 using listener_sftp_queue;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
 using RabbitMQ.Client;
 using Serilog;
