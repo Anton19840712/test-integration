@@ -11,7 +11,7 @@ public class Program
 {
 	public static void Main(string[] args)
 	{
-		Console.Title = "listener";
+		Console.Title = "htttp-listener";
 
 		// Настройка Serilog
 		Log.Logger = new LoggerConfiguration()

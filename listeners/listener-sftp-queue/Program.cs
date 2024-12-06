@@ -1,0 +1,2 @@
+﻿Console.Title = "sftp-listener";
+
