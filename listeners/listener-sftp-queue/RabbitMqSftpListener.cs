@@ -27,7 +27,7 @@ namespace listener_sftp_queue
 
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
-			// Этот метод запускается при старте приложения
+			// Этот метод запускается при старте приложения, по сути, он носит фейковый характер
 			_logger.Information("RabbitMqSftpListener initialized.");
 			return Task.CompletedTask;
 		}

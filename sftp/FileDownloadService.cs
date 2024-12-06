@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.Text;
+using Microsoft.Extensions.Logging;
 using Renci.SshNet;
 
 namespace sftp_client
@@ -18,7 +19,11 @@ namespace sftp_client
         public async Task DownloadFilesAsync(CancellationToken cancellationToken)
         {
             // для скачивания создаем клиент
-            using (var client = new SftpClient(_config.Host, _config.Port, _config.UserName, _config.Password))
+            using (var client = new SftpClient(
+				_config.Host,
+				_config.Port,
+				_config.UserName,
+				_config.Password))
             {
                 try
                 {
@@ -56,9 +61,9 @@ namespace sftp_client
                 }
             }
         }
-		public async Task<List<(string fileName, string fileContent)>> DownloadFilesInMemoryAsync(CancellationToken cancellationToken)
+		public async Task<List<(string fileName, byte[] fileContent)>> DownloadFilesInMemoryAsync(CancellationToken cancellationToken)
 		{
-			var downloadedFiles = new List<(string FileName, string FileContent)>();
+			var downloadedFiles = new List<(string fileName, byte[] fileContent)>();
 
 			using (var client = new SftpClient(_config.Host, _config.Port, _config.UserName, _config.Password))
 			{
@@ -79,8 +84,7 @@ namespace sftp_client
 								client.DownloadFile(file.FullName, memoryStream);
 								memoryStream.Position = 0;
 
-								using var reader = new StreamReader(memoryStream);
-								var fileContent = await reader.ReadToEndAsync();
+								byte[] fileContent = memoryStream.ToArray();
 
 								downloadedFiles.Add((file.Name, fileContent));
 							}

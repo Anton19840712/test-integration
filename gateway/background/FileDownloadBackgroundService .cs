@@ -19,6 +19,13 @@ namespace gateway.background
 			_logger = logger;
 		}
 
+		/// <summary>
+		/// Данный метод запускается, когда стартует FileDownloadBackgroundService непосредственно.
+		/// Сразу же при запуске он идет на sftp сервер и скачивает оттуда все существующие файлы. 
+		/// Настроен таким образом, чтобы удерживать task на каждые 5 минут.
+		/// </summary>
+		/// <param name="stoppingToken"></param>
+		/// <returns></returns>
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			_logger.LogInformation("Сервис фоновой загрузки файлов запущен.");
@@ -33,6 +40,9 @@ namespace gateway.background
 					foreach (var (fileName, fileContent) in downloadedFiles)
 					{
 						_logger.LogInformation("Публикация файла {FileName} в очередь.", fileName);
+
+						// когда ты скачиваешь с сервера данные, то именно и только здесь ты их скачиваешь сначала в сетевую очередь,
+						// из которой будет прослушивать твой sftp listener
 						_queueService.PublishMessage("sftp", fileContent);
 					}
 				}
@@ -41,7 +51,7 @@ namespace gateway.background
 					_logger.LogError(ex, "Ошибка в процессе фоновой загрузки файлов.");
 				}
 
-				// Ожидание перед следующим циклом
+				// Ожидание перед следующим циклом обращения background service за данными на sftp server:
 				await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
 			}
 		}

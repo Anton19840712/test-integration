@@ -56,6 +56,7 @@ services.AddTransient<IFileDownloadService, FileDownloadService>(); // скачиваем
 
 services.AddSingleton<FileProcessingQueue>();
 services.AddHostedService<FileUploadBackgroundService>();
+services.AddHostedService<FileDownloadBackgroundService>();
 
 builder.Services.AddEndpointsApiExplorer(); // Генерация API-описания
 builder.Services.AddSwaggerGen(options =>
@@ -102,7 +103,10 @@ app.UseSwaggerUI(options =>
 	options.RoutePrefix = string.Empty; // Делаем Swagger доступным по корневому пути
 });
 
-app.MapPost("/upload", async (IFormFile file, FileProcessingQueue fileQueue, ILogger logger) =>
+app.MapPost("/upload", async (
+	IFormFile file,
+	FileProcessingQueue fileQueue,
+	ILogger logger) =>
 {
 	if (file == null || file.Length == 0)
 	{
@@ -112,7 +116,12 @@ app.MapPost("/upload", async (IFormFile file, FileProcessingQueue fileQueue, ILo
 
 	try
 	{
-		await fileQueue.EnqueueFileAsync(file.OpenReadStream(), file.FileName, CancellationToken.None);
+		// для выравнивания потока: в случае, если входящий поток данных будет настолько интенсивным, что он не будет успевать считываться.
+		// там под капотом ConcurrentQueue<FileQueueItem>
+		await fileQueue.EnqueueFileAsync(
+			file.OpenReadStream(),
+			file.FileName,
+			CancellationToken.None);
 
 		logger.Information("Файл {FileName} добавлен в очередь на загрузку.", file.FileName);
 		return Results.Ok(new { Message = "Файл добавлен в очередь на загрузку." });
@@ -136,7 +145,7 @@ app.MapGet("/download", async (
 		// скачаем все файлы, которые там находятся
 		logger.Information("Начинается процесс скачивания файлов с сервера SFTP.");
 
-		await downloadService.DownloadFilesAsync(cancellationToken);
+		await downloadService.DownloadFilesInMemoryAsync(cancellationToken);
 
 		logger.Information("Процесс скачивания файлов завершён успешно.");
 		return Results.Ok(new { Message = "Файлы успешно скачаны." });
