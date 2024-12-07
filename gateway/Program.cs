@@ -35,7 +35,7 @@ services.AddAntiforgery(); // Добавляем антифальсификацию (анти-CSRF)
 services.AddHttpClient();
 services.AddSingleton<IConnectionFactory>(new ConnectionFactory { Uri = new Uri("amqp://localhost") });
 services.AddSingleton<QueueService>();
-
+ 
 // Регистрация ILogger для DI
 services.AddSingleton<ILogger>(new LoggerConfiguration()
 	.WriteTo.Console()
