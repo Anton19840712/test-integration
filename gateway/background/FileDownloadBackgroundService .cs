@@ -37,13 +37,13 @@ namespace gateway.background
 					_logger.LogInformation("Начинается загрузка файлов с SFTP-сервера.");
 					var downloadedFiles = await _fileDownloadService.DownloadFilesInMemoryAsync(stoppingToken);
 
-					foreach (var (fileName, fileContent) in downloadedFiles)
+					foreach (var (fileName, fileContent, fileExtension) in downloadedFiles)
 					{
 						_logger.LogInformation("Публикация файла {FileName} в очередь.", fileName);
 
 						// когда ты скачиваешь с сервера данные, то именно и только здесь ты их скачиваешь сначала в сетевую очередь,
 						// из которой будет прослушивать твой sftp listener
-						_queueService.PublishMessage("sftp", fileContent);
+						_queueService.PublishMessage("sftp", fileContent, fileExtension);
 					}
 				}
 				catch (Exception ex)
@@ -52,9 +52,8 @@ namespace gateway.background
 				}
 
 				// Ожидание перед следующим циклом обращения background service за данными на sftp server:
-				await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+				await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
 			}
 		}
-
 	}
 }

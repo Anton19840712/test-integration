@@ -61,9 +61,9 @@ namespace sftp_client
                 }
             }
         }
-		public async Task<List<(string fileName, byte[] fileContent)>> DownloadFilesInMemoryAsync(CancellationToken cancellationToken)
+		public async Task<List<(string fileName, byte[] fileContent, string fileExtension)>> DownloadFilesInMemoryAsync(CancellationToken cancellationToken)
 		{
-			var downloadedFiles = new List<(string fileName, byte[] fileContent)>();
+			var downloadedFiles = new List<(string fileName, byte[] fileContent, string fileExtension)>();
 
 			using (var client = new SftpClient(_config.Host, _config.Port, _config.UserName, _config.Password))
 			{
@@ -86,7 +86,10 @@ namespace sftp_client
 
 								byte[] fileContent = memoryStream.ToArray();
 
-								downloadedFiles.Add((file.Name, fileContent));
+								// Определяем расширение файла
+								var fileExtension = Path.GetExtension(file.Name)?.ToLower() ?? ".bin"; // По умолчанию .bin
+
+								downloadedFiles.Add((file.Name, fileContent, fileExtension));
 							}
 
 							_logger.LogInformation($"Файл {file.Name} успешно скачан.");

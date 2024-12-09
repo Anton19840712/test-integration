@@ -39,14 +39,14 @@ namespace queue
 			var message = System.Text.Json.JsonSerializer.Serialize(enrichedMessage);
 			var body = Encoding.UTF8.GetBytes(message);
 
-			PublishToQueue(queueName, body);
+			PublishToQueue(queueName, body, null);
 		}
 
-		public void PublishMessage(string server, byte[] fileContent)
+		public void PublishMessage(string server, byte[] fileContent, string fileExtension)
 		{
 			var queueName = server;  // Используем значение сервера как имя очереди
 
-			PublishToQueue(queueName, fileContent);
+			PublishToQueue(queueName, fileContent, fileExtension);
 		}
 
 		/// <summary>
@@ -54,7 +54,7 @@ namespace queue
 		/// </summary>
 		/// <param name="queueName"></param>
 		/// <param name="body"></param>
-		private void PublishToQueue(string queueName, byte[] body)
+		private void PublishToQueue(string queueName, byte[] body, string fileExtension)
 		{
 			using var connection = _connectionFactory.CreateConnection();
 			using var channel = connection.CreateModel();
@@ -62,8 +62,15 @@ namespace queue
 			// Убедимся, что очередь существует
 			channel.QueueDeclare(queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
 
+			// Создание заголовков сообщения
+			var properties = channel.CreateBasicProperties();
+			properties.Headers = new Dictionary<string, object>
+			{
+				{ "fileExtension", fileExtension } // передаем расширение файла
+			};
+
 			// Публикуем сообщение в очередь RabbitMQ
-			channel.BasicPublish(exchange: "", routingKey: queueName, basicProperties: null, body: body);
+			channel.BasicPublish(exchange: "", routingKey: queueName, basicProperties: properties, body: body);
 
 			_logger.Information("Сообщение добавлено в очередь {Server}", queueName);
 		}

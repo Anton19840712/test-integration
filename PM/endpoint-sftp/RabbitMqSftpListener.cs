@@ -1,6 +1,7 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Serilog;
+using ILogger = Serilog.ILogger;
 
 namespace listener_sftp_queue
 {
@@ -64,7 +65,10 @@ namespace listener_sftp_queue
 				consumer.Received += (model, ea) =>
 				{
 					var body = ea.Body.ToArray();
-					var fileName = $"{Guid.NewGuid()}.bin";
+
+					// Получаем расширение файла из заголовков RabbitMQ
+					var fileExtension = ea.BasicProperties?.Headers?["fileExtension"]?.ToString() ?? ".bin";
+					var fileName = $"{Guid.NewGuid()}{fileExtension}";
 					var filePath = Path.Combine(saveDirectory, fileName);
 
 					if (!Directory.Exists(saveDirectory))
@@ -78,11 +82,12 @@ namespace listener_sftp_queue
 					_channel.BasicAck(ea.DeliveryTag, false);
 				};
 
+
 				_channel.BasicConsume(queueName, false, consumer);
 
 				while (!_cts.Token.IsCancellationRequested)
 				{
-					await Task.Delay(intervalInSeconds, _cts.Token);
+					await Task.Delay(intervalInSeconds * 1000, _cts.Token);
 				}
 			}, _cts.Token);
 

@@ -1,10 +1,9 @@
 using listener_sftp_queue;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using RabbitMQ.Client;
 using Serilog;
-using sftp_client;
-using ILogger = Serilog.ILogger;
 
 Console.Title = "endpoint-for-listener-management";
 
@@ -16,35 +15,6 @@ Log.Logger = new LoggerConfiguration().CreateLogger();
 builder.Host.UseSerilog((context, services, configuration) => configuration.WriteTo.Console());
 
 services.AddHttpClient();
-
-// добавляем связь под amqp:
-// services.AddSingleton<IConnectionFactory>(new ConnectionFactory { Uri = new Uri("amqp://localhost") });
-
-// по смыслу такая же, только локальная тестовая вариация:
-builder.Services.AddSingleton<IConnectionFactory>(provider =>
-	new ConnectionFactory
-	{
-		HostName = "localhost", // Укажите ваше значение
-		UserName = "service",
-		Password = "A1qwert"
-	});
-
-builder.Services.AddSingleton<RabbitMqSftpListener>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<RabbitMqSftpListener>());
-
-// Настройка SFTP
-var sftpConfig = new SftpConfig
-{
-	Host = AppSettings.Host,
-	Port = AppSettings.Port,
-	UserName = AppSettings.UserName,
-	Password = AppSettings.Password,
-	Source = AppSettings.Source
-};
-
-//как вариация скачивания
-services.AddTransient<IFileDownloadService, FileDownloadService>();
-services.AddSingleton(sftpConfig);
 
 // Генерация документации Swagger
 services.AddEndpointsApiExplorer();
@@ -58,7 +28,7 @@ services.AddSwaggerGen(options =>
 	});
 });
 
-// Добавление аутентификации - нужно попробовать без нее.
+// Добавление аутентификации
 services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 	.AddCookie(options =>
 	{
@@ -67,6 +37,15 @@ services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 	});
 
 services.AddAuthorization();
+services.AddSingleton<IConnectionFactory>(provider =>
+				new ConnectionFactory
+				{
+					HostName = "localhost",
+					UserName = "service",
+					Password = "A1qwert"
+				});
+
+services.AddSingleton<RabbitMqSftpListener>(); // Добавляем Listener как сервис
 
 var app = builder.Build();
 
@@ -83,59 +62,41 @@ app.UseSwaggerUI(options =>
 	options.RoutePrefix = "swagger"; // Swagger доступен на /swagger
 });
 
-// пример запроса, который запускает sftp-listener
-//POST http://localhost:5000/listener/start
-//{
-//	"queueName": "file_queue",
-//    "saveDirectory": "C:/Downloads",
-//    "intervalInSeconds": 10
-//}
+// Пример запроса, который запускает sftp-listener
+// POST http://localhost:5000/listener/start
+// {
+//     "queueName": "file_queue",
+//     "saveDirectory": "C:/Downloads",
+//     "intervalInSeconds": 10
+// }
 
-
-
-// базовые предполагаемые команды, которые будет способен выполнять наш listener
-// HTTP-методы управления listener-ом
+// HTTP-методы для управления listener'ом
 app.MapPost("/listener/start", (
-	RabbitMqSftpListener listener,
-	string queueName,
-	string saveDirectory,
-	int intervalInSeconds) =>
+	[FromServices] RabbitMqSftpListener listener,
+	[FromBody] ListenerStartRequest request) =>
 {
-	listener.Start(queueName, saveDirectory, intervalInSeconds);
+	listener.Start(request.QueueName, request.SaveDirectory, request.IntervalInSeconds);
 	return Results.Ok("Listener started.");
 });
 
-app.MapPost("/listener/stop", (RabbitMqSftpListener listener) =>
+app.MapPost("/listener/stop", ([FromServices] RabbitMqSftpListener listener) =>
 {
 	listener.Stop();
 	return Results.Ok("Listener stopped.");
 });
 
-app.MapGet("/listener/status", (RabbitMqSftpListener listener) =>
+app.MapGet("/listener/status", ([FromServices] RabbitMqSftpListener listener) =>
 {
 	return Results.Ok(new { IsRunning = listener.IsRunning });
 });
 
-// API для управления удаленным sftp server, а так же sftp-listener ом
-app.MapGet("/download", async (
-	IFileDownloadService downloadService,
-	ILogger logger,
-	CancellationToken cancellationToken) =>
-{
-	try
-	{
-		logger.Information("Начинается процесс скачивания файлов с сервера SFTP.");
-
-		// будем скачивать в место на жестком диске:"C:\Documents2"
-		await downloadService.DownloadFilesAsync(cancellationToken);
-		logger.Information("Процесс скачивания файлов завершён успешно.");
-		return Results.Ok(new { Message = "Файлы успешно скачаны." });
-	}
-	catch (Exception ex)
-	{
-		logger.Error(ex, "Ошибка при скачивании файлов с сервера SFTP.");
-		return Results.StatusCode(500);
-	}
-});
 
 app.Run();
+
+// Классы запросов для начала и остановки listener'а
+public class ListenerStartRequest
+{
+	public string QueueName { get; set; }
+	public string SaveDirectory { get; set; }
+	public int IntervalInSeconds { get; set; }
+}

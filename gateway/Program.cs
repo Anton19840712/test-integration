@@ -33,7 +33,15 @@ services.AddCors(options =>
 
 services.AddAntiforgery(); // Добавляем антифальсификацию (анти-CSRF)
 services.AddHttpClient();
-services.AddSingleton<IConnectionFactory>(new ConnectionFactory { Uri = new Uri("amqp://localhost") });
+//services.AddSingleton<IConnectionFactory>(new ConnectionFactory { Uri = new Uri("amqp://localhost") });
+services.AddSingleton<IConnectionFactory>(new ConnectionFactory
+{
+	Uri = new Uri("amqp://service:A1qwert@localhost:5672")
+});
+
+
+
+
 services.AddSingleton<QueueService>();
  
 // Регистрация ILogger для DI
